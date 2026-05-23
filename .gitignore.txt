@@ -1,0 +1,15 @@
+frontend/node_modules/
+frontend/build/
+frontend/.cache/
+
+backend/target/
+
+uploads/
+
+.vscode/
+.idea/
+
+*.log
+.env
+Thumbs.db
+.DS_Store

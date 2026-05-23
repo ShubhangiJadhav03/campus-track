@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+
+  # ── MySQL Database ─────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: campustrack-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: college_complaints
+      MYSQL_USER: campustrack
+      MYSQL_PASSWORD: campustrack123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - campustrack-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Spring Boot Backend ────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: campustrack-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/college_complaints?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: campustrack
+      SPRING_DATASOURCE_PASSWORD: campustrack123
+      JWT_SECRET: collegeComplaintSystemSecretKey2024VeryLongSecretKeyForHS512Algorithm
+      JWT_EXPIRATION: 86400000
+      CORS_ORIGINS: http://localhost,http://localhost:3000,http://frontend
+    ports:
+      - "8080:8080"
+    networks:
+      - campustrack-net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── React Frontend ─────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: campustrack-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - campustrack-net
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  campustrack-net:
+    driver: bridge
